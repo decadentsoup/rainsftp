@@ -22,7 +22,15 @@ func (handler handler) Fileread(request *sftp.Request) (io.ReaderAt, error) {
 
 	switch request.Method {
 	case "Get":
-		return nil, sftp.ErrSSHFxOpUnsupported
+		if object, err := handler.minioClient.GetObject(request.Context(), handler.bucket, strings.TrimPrefix(request.Filepath, "/"), minio.GetObjectOptions{}); err != nil {
+			return nil, err
+		} else {
+			// Theoretically we should be able to just return object, but due to
+			// EOF handling doing that will always result in an HTTP 416 getting
+			// returned to the client once the download completes. The file will
+			// arrive to the client, but the client will report an error.
+			return reader{object}, nil
+		}
 	default:
 		return nil, sftp.ErrSSHFxOpUnsupported
 	}
