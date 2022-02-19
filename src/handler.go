@@ -66,7 +66,7 @@ func (handler handler) Filecmd(request *sftp.Request) error {
 	case "Symlink":
 		return sftp.ErrSSHFxOpUnsupported
 	case "Remove":
-		return sftp.ErrSSHFxOpUnsupported
+		return handler.minioClient.RemoveObject(request.Context(), handler.bucket, strings.TrimPrefix(request.Filepath, "/"), minio.RemoveObjectOptions{})
 	default:
 		return sftp.ErrSSHFxOpUnsupported
 	}
