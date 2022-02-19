@@ -41,7 +41,7 @@ func (handler handler) Filewrite(request *sftp.Request) (io.WriterAt, error) {
 
 	switch request.Method {
 	case "Put":
-		return nil, sftp.ErrSSHFxOpUnsupported
+		return newWriter(request.Context(), handler.log, handler.minioClient, handler.bucket, strings.TrimPrefix(request.Filepath, "/"))
 	case "Open":
 		return nil, sftp.ErrSSHFxOpUnsupported
 	default:
