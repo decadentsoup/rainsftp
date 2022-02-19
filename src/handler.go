@@ -58,7 +58,9 @@ func (handler handler) Filecmd(request *sftp.Request) error {
 	case "Rename":
 		return sftp.ErrSSHFxOpUnsupported
 	case "Rmdir":
-		return sftp.ErrSSHFxOpUnsupported
+		// BUG: Removing a non-empty directory will result in success even
+		// though the directory is not removed.
+		return handler.minioClient.RemoveObject(request.Context(), handler.bucket, strings.TrimPrefix(request.Filepath, "/")+"/", minio.RemoveObjectOptions{})
 	case "Mkdir":
 		_, err := handler.minioClient.PutObject(request.Context(), handler.bucket, strings.TrimPrefix(request.Filepath, "/")+"/", nil, 0, minio.PutObjectOptions{})
 		return err
@@ -67,6 +69,8 @@ func (handler handler) Filecmd(request *sftp.Request) error {
 	case "Symlink":
 		return sftp.ErrSSHFxOpUnsupported
 	case "Remove":
+		// BUG: Trying to remove a directory results in "Failure" when it should
+		// result in a more specific error.
 		return handler.minioClient.RemoveObject(request.Context(), handler.bucket, strings.TrimPrefix(request.Filepath, "/"), minio.RemoveObjectOptions{})
 	default:
 		return sftp.ErrSSHFxOpUnsupported
