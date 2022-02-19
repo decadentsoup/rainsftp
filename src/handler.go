@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"io"
 	"os"
 	"strings"
@@ -23,9 +22,9 @@ func (handler handler) Fileread(request *sftp.Request) (io.ReaderAt, error) {
 
 	switch request.Method {
 	case "Get":
-		return nil, errors.New("not implemented")
+		return nil, sftp.ErrSSHFxOpUnsupported
 	default:
-		return nil, errors.New("not implemented")
+		return nil, sftp.ErrSSHFxOpUnsupported
 	}
 }
 
@@ -34,11 +33,11 @@ func (handler handler) Filewrite(request *sftp.Request) (io.WriterAt, error) {
 
 	switch request.Method {
 	case "Put":
-		return nil, errors.New("not implemented")
+		return nil, sftp.ErrSSHFxOpUnsupported
 	case "Open":
-		return nil, errors.New("not implemented")
+		return nil, sftp.ErrSSHFxOpUnsupported
 	default:
-		return nil, errors.New("not implemented")
+		return nil, sftp.ErrSSHFxOpUnsupported
 	}
 }
 
@@ -47,21 +46,21 @@ func (handler handler) Filecmd(request *sftp.Request) error {
 
 	switch request.Method {
 	case "Setstat":
-		return errors.New("not implemented")
+		return sftp.ErrSSHFxOpUnsupported
 	case "Rename":
-		return errors.New("not implemented")
+		return sftp.ErrSSHFxOpUnsupported
 	case "Rmdir":
-		return errors.New("not implemented")
+		return sftp.ErrSSHFxOpUnsupported
 	case "Mkdir":
-		return errors.New("not implemented")
+		return sftp.ErrSSHFxOpUnsupported
 	case "Link":
-		return errors.New("not implemented")
+		return sftp.ErrSSHFxOpUnsupported
 	case "Symlink":
-		return errors.New("not implemented")
+		return sftp.ErrSSHFxOpUnsupported
 	case "Remove":
-		return errors.New("not implemented")
+		return sftp.ErrSSHFxOpUnsupported
 	default:
-		return errors.New("not implemented")
+		return sftp.ErrSSHFxOpUnsupported
 	}
 }
 
@@ -108,8 +107,8 @@ func (handler handler) Filelist(request *sftp.Request) (sftp.ListerAt, error) {
 			return nil, err
 		}
 	case "Readlink":
-		return nil, errors.New("not implemented")
+		return nil, sftp.ErrSSHFxOpUnsupported
 	default:
-		return nil, errors.New("not implemented")
+		return nil, sftp.ErrSSHFxOpUnsupported
 	}
 }
