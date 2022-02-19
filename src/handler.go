@@ -60,7 +60,8 @@ func (handler handler) Filecmd(request *sftp.Request) error {
 	case "Rmdir":
 		return sftp.ErrSSHFxOpUnsupported
 	case "Mkdir":
-		return sftp.ErrSSHFxOpUnsupported
+		_, err := handler.minioClient.PutObject(request.Context(), handler.bucket, strings.TrimPrefix(request.Filepath, "/")+"/", nil, 0, minio.PutObjectOptions{})
+		return err
 	case "Link":
 		return sftp.ErrSSHFxOpUnsupported
 	case "Symlink":
