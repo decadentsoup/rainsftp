@@ -1,12 +1,14 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"strconv"
 	"strings"
 
 	"github.com/gliderlabs/ssh"
+	"github.com/go-ldap/ldap/v3"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/pkg/sftp"
@@ -26,6 +28,22 @@ func main() {
 	} else {
 		log.SetFormatter(&ecslogrus.Formatter{})
 	}
+
+	ldapEndpoint := os.Getenv("LDAP_ENDPOINT")
+	ldapBaseDN := os.Getenv("LDAP_BASE_DN")
+
+	log.WithFields(logrus.Fields{
+		"ldapEndpoint": ldapEndpoint,
+		"ldapBaseDN":   ldapBaseDN,
+	}).Info("testing ldap credentials...")
+
+	if ldapClient := dialLDAP(log.WithFields(logrus.Fields{})); ldapClient == nil {
+		os.Exit(1)
+	} else {
+		ldapClient.Close()
+	}
+
+	log.Info("tested ldap credentials")
 
 	s3Endpoint := os.Getenv("S3_ENDPOINT")
 	s3Secure, err := strconv.ParseBool(getEnvWithDefault("S3_SECURE", "true"))
@@ -60,6 +78,35 @@ func main() {
 		Handler: func(session ssh.Session) {
 			log.WithField("address", session.RemoteAddr().String()).Info("client attempted connection without sftp")
 			io.WriteString(session, "This server only supports SFTP.\n")
+		},
+		PasswordHandler: func(context ssh.Context, password string) bool {
+			username := context.User()
+			log := log.WithField("address", context.RemoteAddr().String()).WithField("username", username)
+			log.Info("authenticating...")
+
+			if ldapClient := dialLDAP(log); ldapClient == nil {
+				log.Error("cannot authenticate")
+				return false
+			} else {
+				defer ldapClient.Close()
+
+				if result, err := ldapClient.Search(ldap.NewSearchRequest(ldapBaseDN, ldap.ScopeWholeSubtree, ldap.NeverDerefAliases, 0, 0, false, fmt.Sprintf("(&(objectClass=organizationalPerson)(uid=%s))", ldap.EscapeFilter(username)), []string{}, nil)); err != nil {
+					log.WithError(err).Error("failed to search ldap")
+					return false
+				} else if entryCount := len(result.Entries); entryCount == 0 {
+					log.Info("username not found")
+					return false
+				} else if entryCount != 1 {
+					log.WithField("entryCount", entryCount).Error("ldap returned suspicious number of entries")
+				} else if err := ldapClient.Bind(result.Entries[0].DN, password); err != nil {
+					log.WithError(err).Info("authentication failed")
+					return false
+				} else {
+					return true
+				}
+			}
+
+			return false
 		},
 		SubsystemHandlers: map[string]ssh.SubsystemHandler{
 			"sftp": func(session ssh.Session) {

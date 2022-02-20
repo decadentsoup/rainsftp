@@ -4,8 +4,11 @@ go 1.17
 
 require (
 	github.com/anmitsu/go-shlex v0.0.0-20200514113438-38f4b401e2be // indirect
+	github.com/Azure/go-ntlmssp v0.0.0-20200615164410-66371956d46c // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/gliderlabs/ssh v0.3.3
+	github.com/go-asn1-ber/asn1-ber v1.5.1 // indirect
+	github.com/go-ldap/ldap/v3 v3.4.2
 	github.com/google/uuid v1.1.1 // indirect
 	github.com/json-iterator/go v1.1.10 // indirect
 	github.com/klauspost/compress v1.13.5 // indirect
