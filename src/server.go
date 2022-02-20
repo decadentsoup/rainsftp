@@ -31,10 +31,14 @@ func main() {
 
 	ldapEndpoint := os.Getenv("LDAP_ENDPOINT")
 	ldapBaseDN := os.Getenv("LDAP_BASE_DN")
+	ldapReadGroup := os.Getenv("LDAP_READ_GROUP")
+	ldapWriteGroup := os.Getenv("LDAP_WRITE_GROUP")
 
 	log.WithFields(logrus.Fields{
-		"ldapEndpoint": ldapEndpoint,
-		"ldapBaseDN":   ldapBaseDN,
+		"ldapEndpoint":   ldapEndpoint,
+		"ldapBaseDN":     ldapBaseDN,
+		"ldapReadGroup":  ldapReadGroup,
+		"ldapWriteGroup": ldapWriteGroup,
 	}).Info("testing ldap credentials...")
 
 	if ldapClient := dialLDAP(log.WithFields(logrus.Fields{})); ldapClient == nil {
@@ -90,7 +94,7 @@ func main() {
 			} else {
 				defer ldapClient.Close()
 
-				if result, err := ldapClient.Search(ldap.NewSearchRequest(ldapBaseDN, ldap.ScopeWholeSubtree, ldap.NeverDerefAliases, 0, 0, false, fmt.Sprintf("(&(objectClass=organizationalPerson)(uid=%s))", ldap.EscapeFilter(username)), []string{}, nil)); err != nil {
+				if result, err := ldapClient.Search(ldap.NewSearchRequest(ldapBaseDN, ldap.ScopeWholeSubtree, ldap.NeverDerefAliases, 0, 0, false, fmt.Sprintf("(&(objectClass=organizationalPerson)(uid=%s))", ldap.EscapeFilter(username)), []string{"memberOf"}, nil)); err != nil {
 					log.WithError(err).Error("failed to search ldap")
 					return false
 				} else if entryCount := len(result.Entries); entryCount == 0 {
@@ -102,6 +106,18 @@ func main() {
 					log.WithError(err).Info("authentication failed")
 					return false
 				} else {
+					context.SetValue("AllowRead", false)
+					context.SetValue("AllowWrite", false)
+
+					for _, group := range result.Entries[0].GetAttributeValues("memberOf") {
+						switch group {
+						case ldapReadGroup:
+							context.SetValue("AllowRead", true)
+						case ldapWriteGroup:
+							context.SetValue("AllowWrite", true)
+						}
+					}
+
 					return true
 				}
 			}
@@ -114,7 +130,16 @@ func main() {
 				log.Info("client connected")
 				defer log.Info("client disconnected")
 
-				handler := handler{log, minioClient, s3Bucket}
+				context := session.Context()
+				allowRead := context.Value("AllowRead").(bool)
+				allowWrite := context.Value("AllowWrite").(bool)
+
+				log.WithFields(logrus.Fields{
+					"allowRead":  allowRead,
+					"allowWrite": allowWrite,
+				}).Info("permissions")
+
+				handler := handler{log, minioClient, s3Bucket, allowRead, allowWrite}
 
 				sftpServer := sftp.NewRequestServer(session, sftp.Handlers{
 					FileGet:  handler,

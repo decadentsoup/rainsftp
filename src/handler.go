@@ -15,10 +15,16 @@ type handler struct {
 	log         *logrus.Entry
 	minioClient *minio.Client
 	bucket      string
+	allowRead   bool
+	allowWrite  bool
 }
 
 func (handler handler) Fileread(request *sftp.Request) (io.ReaderAt, error) {
 	handler.log.WithField("request", request).Debug("request received")
+
+	if !handler.allowRead {
+		return nil, sftp.ErrSSHFxPermissionDenied
+	}
 
 	switch request.Method {
 	case "Get":
@@ -39,6 +45,10 @@ func (handler handler) Fileread(request *sftp.Request) (io.ReaderAt, error) {
 func (handler handler) Filewrite(request *sftp.Request) (io.WriterAt, error) {
 	handler.log.WithField("request", request).Debug("request received")
 
+	if !handler.allowWrite {
+		return nil, sftp.ErrSSHFxPermissionDenied
+	}
+
 	switch request.Method {
 	case "Put":
 		return newWriter(request.Context(), handler.log, handler.minioClient, handler.bucket, strings.TrimPrefix(request.Filepath, "/"))
@@ -51,6 +61,10 @@ func (handler handler) Filewrite(request *sftp.Request) (io.WriterAt, error) {
 
 func (handler handler) Filecmd(request *sftp.Request) error {
 	handler.log.WithField("request", request).Debug("request received")
+
+	if !handler.allowWrite {
+		return sftp.ErrSSHFxPermissionDenied
+	}
 
 	switch request.Method {
 	case "Setstat":
@@ -79,6 +93,10 @@ func (handler handler) Filecmd(request *sftp.Request) error {
 
 func (handler handler) Filelist(request *sftp.Request) (sftp.ListerAt, error) {
 	handler.log.WithField("request", request).Debug("request received")
+
+	if !handler.allowRead {
+		return nil, sftp.ErrSSHFxPermissionDenied
+	}
 
 	switch request.Method {
 	case "List":
