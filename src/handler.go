@@ -19,9 +19,32 @@ type handler struct {
 	allowWrite  bool
 }
 
-func (handler handler) Fileread(request *sftp.Request) (io.ReaderAt, error) {
-	handler.log.WithField("request", request).Debug("request received")
+func (handler *handler) logRequest(request *sftp.Request) {
+	handler.log.WithFields(logrus.Fields{
+		"method":   request.Method,
+		"filepath": request.Filepath,
+		"flags":    request.Flags,
+		"attrs":    request.Attrs,
+		"target":   request.Target,
+	}).Info("request received")
+}
 
+func (handler *handler) logResponse(err error) {
+	if err == nil {
+		handler.log.Info("responding with success")
+	} else {
+		handler.log.WithError(err).Info("responding with error")
+	}
+}
+
+func (handler *handler) Fileread(request *sftp.Request) (io.ReaderAt, error) {
+	handler.logRequest(request)
+	readerAt, err := handler.fileread(request)
+	handler.logResponse(err)
+	return readerAt, err
+}
+
+func (handler *handler) fileread(request *sftp.Request) (io.ReaderAt, error) {
 	if !handler.allowRead {
 		return nil, sftp.ErrSSHFxPermissionDenied
 	}
@@ -42,9 +65,14 @@ func (handler handler) Fileread(request *sftp.Request) (io.ReaderAt, error) {
 	}
 }
 
-func (handler handler) Filewrite(request *sftp.Request) (io.WriterAt, error) {
-	handler.log.WithField("request", request).Debug("request received")
+func (handler *handler) Filewrite(request *sftp.Request) (io.WriterAt, error) {
+	handler.logRequest(request)
+	writerAt, err := handler.filewrite(request)
+	handler.logResponse(err)
+	return writerAt, err
+}
 
+func (handler *handler) filewrite(request *sftp.Request) (io.WriterAt, error) {
 	if !handler.allowWrite {
 		return nil, sftp.ErrSSHFxPermissionDenied
 	}
@@ -59,9 +87,14 @@ func (handler handler) Filewrite(request *sftp.Request) (io.WriterAt, error) {
 	}
 }
 
-func (handler handler) Filecmd(request *sftp.Request) error {
-	handler.log.WithField("request", request).Debug("request received")
+func (handler *handler) Filecmd(request *sftp.Request) error {
+	handler.logRequest(request)
+	err := handler.filecmd(request)
+	handler.logResponse(err)
+	return err
+}
 
+func (handler *handler) filecmd(request *sftp.Request) error {
 	if !handler.allowWrite {
 		return sftp.ErrSSHFxPermissionDenied
 	}
@@ -91,9 +124,14 @@ func (handler handler) Filecmd(request *sftp.Request) error {
 	}
 }
 
-func (handler handler) Filelist(request *sftp.Request) (sftp.ListerAt, error) {
-	handler.log.WithField("request", request).Debug("request received")
+func (handler *handler) Filelist(request *sftp.Request) (sftp.ListerAt, error) {
+	handler.logRequest(request)
+	listerAt, err := handler.filelist(request)
+	handler.logResponse(err)
+	return listerAt, err
+}
 
+func (handler *handler) filelist(request *sftp.Request) (sftp.ListerAt, error) {
 	if !handler.allowRead {
 		return nil, sftp.ErrSSHFxPermissionDenied
 	}

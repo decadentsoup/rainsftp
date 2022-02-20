@@ -139,7 +139,7 @@ func main() {
 					"allowWrite": allowWrite,
 				}).Info("permissions")
 
-				handler := handler{log, minioClient, s3Bucket, allowRead, allowWrite}
+				handler := &handler{log, minioClient, s3Bucket, allowRead, allowWrite}
 
 				sftpServer := sftp.NewRequestServer(session, sftp.Handlers{
 					FileGet:  handler,
