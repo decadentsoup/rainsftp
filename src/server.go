@@ -1,14 +1,12 @@
 package main
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"strconv"
 	"strings"
 
 	"github.com/gliderlabs/ssh"
-	"github.com/go-ldap/ldap/v3"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/pkg/sftp"
@@ -29,25 +27,7 @@ func main() {
 		log.SetFormatter(&ecslogrus.Formatter{})
 	}
 
-	ldapEndpoint := os.Getenv("LDAP_ENDPOINT")
-	ldapBaseDN := os.Getenv("LDAP_BASE_DN")
-	ldapReadGroup := os.Getenv("LDAP_READ_GROUP")
-	ldapWriteGroup := os.Getenv("LDAP_WRITE_GROUP")
-
-	log.WithFields(logrus.Fields{
-		"ldapEndpoint":   ldapEndpoint,
-		"ldapBaseDN":     ldapBaseDN,
-		"ldapReadGroup":  ldapReadGroup,
-		"ldapWriteGroup": ldapWriteGroup,
-	}).Info("testing ldap credentials...")
-
-	if ldapClient := dialLDAP(log.WithFields(logrus.Fields{})); ldapClient == nil {
-		os.Exit(1)
-	} else {
-		ldapClient.Close()
-	}
-
-	log.Info("tested ldap credentials")
+	authBackend := newAuthBackend(log)
 
 	s3Endpoint := os.Getenv("S3_ENDPOINT")
 	s3Secure, err := strconv.ParseBool(getEnvWithDefault("S3_SECURE", "true"))
@@ -88,41 +68,16 @@ func main() {
 			log := log.WithField("address", context.RemoteAddr().String()).WithField("username", username)
 			log.Info("authenticating...")
 
-			if ldapClient := dialLDAP(log); ldapClient == nil {
-				log.Error("cannot authenticate")
-				return false
-			} else {
-				defer ldapClient.Close()
+			permissions := authBackend.auth(username, password)
 
-				if result, err := ldapClient.Search(ldap.NewSearchRequest(ldapBaseDN, ldap.ScopeWholeSubtree, ldap.NeverDerefAliases, 0, 0, false, fmt.Sprintf("(&(objectClass=organizationalPerson)(uid=%s))", ldap.EscapeFilter(username)), []string{"memberOf"}, nil)); err != nil {
-					log.WithError(err).Error("failed to search ldap")
-					return false
-				} else if entryCount := len(result.Entries); entryCount == 0 {
-					log.Info("username not found")
-					return false
-				} else if entryCount != 1 {
-					log.WithField("entryCount", entryCount).Error("ldap returned suspicious number of entries")
-				} else if err := ldapClient.Bind(result.Entries[0].DN, password); err != nil {
-					log.WithError(err).Info("authentication failed")
-					return false
-				} else {
-					context.SetValue("AllowRead", false)
-					context.SetValue("AllowWrite", false)
-
-					for _, group := range result.Entries[0].GetAttributeValues("memberOf") {
-						switch group {
-						case ldapReadGroup:
-							context.SetValue("AllowRead", true)
-						case ldapWriteGroup:
-							context.SetValue("AllowWrite", true)
-						}
-					}
-
-					return true
-				}
+			if permissions == nil {
+				return false // Logs will be printed by authBackend.auth
 			}
 
-			return false
+			context.SetValue("AllowRead", permissions.canRead)
+			context.SetValue("AllowWrite", permissions.canWrite)
+
+			return true
 		},
 		SubsystemHandlers: map[string]ssh.SubsystemHandler{
 			"sftp": func(session ssh.Session) {
