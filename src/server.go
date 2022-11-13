@@ -16,6 +16,7 @@ import (
 )
 
 func main() {
+	// func server() {
 	log := logrus.New()
 	log.SetOutput(os.Stdout)
 
@@ -28,6 +29,7 @@ func main() {
 	}
 
 	authBackend := newAuthBackend(log)
+	publicKeyBackend := newPublicKeyBackend(log)
 
 	s3Endpoint := os.Getenv("S3_ENDPOINT")
 	s3Secure, err := strconv.ParseBool(getEnvWithDefault("S3_SECURE", "true"))
@@ -62,6 +64,23 @@ func main() {
 		Handler: func(session ssh.Session) {
 			log.WithField("address", session.RemoteAddr().String()).Info("client attempted connection without sftp")
 			io.WriteString(session, "This server only supports SFTP.\n")
+		},
+		PublicKeyHandler: func(context ssh.Context, key ssh.PublicKey) bool {
+			username := context.User()
+			log := log.WithField("address", context.RemoteAddr().String()).WithField("username", username)
+			log.Info("authenticating...")
+
+			permissions := publicKeyBackend.auth(context, key)
+
+			if permissions == nil {
+				return false
+			}
+			log.Printf("User %s authenticated", username)
+
+			context.SetValue("AllowRead", permissions.canRead)
+			context.SetValue("AllowWrite", permissions.canWrite)
+
+			return true
 		},
 		PasswordHandler: func(context ssh.Context, password string) bool {
 			username := context.User()

@@ -16,6 +16,10 @@ type permissions struct {
 }
 
 func newAuthBackend(log *logrus.Logger) authBackend {
+	if os.Getenv("PUBLIC_KEY_USERS") != "" {
+		log.Info("using public key authentication backend")
+		return newPublicKeyBackend(log)
+	}
 	if os.Getenv("JSON_USERS") != "" {
 		log.Info("using json authentication backend")
 		return newJSONAuthBackend(log)
