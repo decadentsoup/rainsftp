@@ -29,7 +29,7 @@ func main() {
 	}
 
 	authBackend := newAuthBackend(log)
-	publicKeyBackend := newPublicKeyBackend(log)
+	authKeyBackend := newAuthKeyBackend(log)
 
 	s3Endpoint := os.Getenv("S3_ENDPOINT")
 	s3Secure, err := strconv.ParseBool(getEnvWithDefault("S3_SECURE", "true"))
@@ -70,7 +70,7 @@ func main() {
 			log := log.WithField("address", context.RemoteAddr().String()).WithField("username", username)
 			log.Info("authenticating...")
 
-			permissions := publicKeyBackend.auth(context, key)
+			permissions := authKeyBackend.auth(context, key)
 
 			if permissions == nil {
 				return false

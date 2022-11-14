@@ -28,12 +28,6 @@ func newPublicKeyBackend(log *logrus.Logger) *publicKeyAuthBackend {
 		users: make(map[string]publicKeyUser),
 	}
 
-	// data, err := os.ReadFile("sample_publickey_users.json")
-	// if err != nil {
-	// 	fmt.Print("There was an error")
-	// }
-
-	// if err := json.Unmarshal(data, &backend.users); err != nil {
 	if err := json.Unmarshal([]byte(os.Getenv("PUBLIC_KEY_USERS")), &backend.users); err != nil {
 		log.WithError(err).Error("failed to parse PUBLIC_KEY_USERS")
 	}

@@ -3,11 +3,15 @@ package main
 import (
 	"os"
 
+	"github.com/gliderlabs/ssh"
 	"github.com/sirupsen/logrus"
 )
 
 type authBackend interface {
 	auth(username string, password string) *permissions
+}
+type authKeyBackend interface {
+	auth(context ssh.Context, publicKey ssh.PublicKey) *permissions
 }
 
 type permissions struct {
@@ -15,11 +19,16 @@ type permissions struct {
 	canWrite bool
 }
 
-func newAuthBackend(log *logrus.Logger) authBackend {
+func newAuthKeyBackend(log *logrus.Logger) authKeyBackend {
 	if os.Getenv("PUBLIC_KEY_USERS") != "" {
-		log.Info("using public key authentication backend")
+		log.Info("using public key users found, adding public key backend")
 		return newPublicKeyBackend(log)
 	}
+	log.Println("no public key users found, not using public key auth")
+	return nil
+}
+
+func newAuthBackend(log *logrus.Logger) authBackend {
 	if os.Getenv("JSON_USERS") != "" {
 		log.Info("using json authentication backend")
 		return newJSONAuthBackend(log)
